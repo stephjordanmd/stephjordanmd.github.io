@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aboitiz Power — Cost of Capital Analysis · AIM EMBA 2027A</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#060b17;--surface:#0d1525;--surface2:#121e33;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#e8edf7;--muted:#6b7fa3;
+  --accent:#38bdf8;--gold:#f59e0b;--green:#10d98a;--red:#f43f5e;--purple:#a78bfa;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(56,189,248,0.025)1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,0.025)1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.wrapper{position:relative;z-index:1;max-width:1380px;margin:0 auto;padding:0 24px 60px;}
+header{padding:40px 0 32px;border-bottom:1px solid var(--border2);margin-bottom:36px;display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
+h1{font-family:'Playfair Display',serif;font-size:clamp(24px,3.5vw,40px);font-weight:700;line-height:1.1;color:#fff;}
+h1 span{color:var(--accent);}
+.subtitle{margin-top:10px;color:var(--muted);font-size:14px;}
+.header-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+.badge{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:4px 12px;border-radius:20px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);color:var(--accent);letter-spacing:1px;}
+.badge.gold{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.3);color:var(--gold);}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:14px;margin-bottom:28px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;overflow:hidden;transition:transform 0.2s,border-color 0.2s;}
+.kpi:hover{transform:translateY(-2px);border-color:var(--border2);}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--ac,var(--accent));border-radius:12px 12px 0 0;}
+.kpi.gk{--ac:var(--gold)}.kpi.grk{--ac:var(--green)}.kpi.rk{--ac:var(--red)}.kpi.pk{--ac:var(--purple)}
+.kpi-label{font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:7px;font-family:'IBM Plex Mono',monospace;}
+.kpi-value{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:500;color:#fff;line-height:1;}
+.kpi-value.a{color:var(--accent)}.kpi-value.g{color:var(--gold)}.kpi-value.gr{color:var(--green)}.kpi-value.r{color:var(--red)}.kpi-value.p{color:var(--purple)}
+.kpi-delta{margin-top:7px;font-size:11.5px;color:var(--muted);}
+.kpi-delta.up{color:var(--green)}.kpi-delta.dn{color:var(--red)}
+.section-title{font-family:'Playfair Display',serif;font-size:15px;font-weight:600;color:#fff;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+.dot.g{background:var(--gold)}.dot.gr{background:var(--green)}.dot.p{background:var(--purple)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;overflow:hidden;}
+.card-note{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.55;font-style:italic;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;}
+.g1{display:grid;grid-template-columns:1fr;gap:18px;margin-bottom:18px;}
+@media(max-width:760px){.g2{grid-template-columns:1fr;}.verdict-grid{grid-template-columns:1fr;}}
+canvas{max-height:290px;}
+.wacc-table{width:100%;border-collapse:collapse;}
+.wacc-table th{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;}
+.wacc-table td{padding:10px 10px;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:12px;}
+.wacc-table tr:last-child td{border-bottom:none;}
+.wacc-table tr:hover td{background:rgba(255,255,255,0.02);}
+.wacc-table td:first-child{color:var(--muted);}
+.wacc-table .tot td{color:#fff;font-weight:600;background:rgba(56,189,248,0.04);}
+.pill{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10px;}
+.pill.dn{background:rgba(244,63,94,0.15);color:var(--red);}
+.pill.up{background:rgba(16,217,138,0.15);color:var(--green);}
+.heat-table{width:100%;border-collapse:collapse;}
+.heat-table th,.heat-table td{padding:9px 12px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11.5px;border:1px solid var(--border);}
+.heat-table th{color:var(--muted);font-size:10px;background:rgba(255,255,255,0.02);}
+.heat-table td{transition:filter 0.2s;cursor:default;}
+.heat-table td:hover{filter:brightness(1.3);}
+.verdict-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.vc{border-radius:14px;padding:24px;}
+.vc.buy{background:linear-gradient(135deg,rgba(16,217,138,0.08),rgba(16,217,138,0.02));border:1px solid rgba(16,217,138,0.25);}
+.vc.hold{background:linear-gradient(135deg,rgba(244,63,94,0.08),rgba(244,63,94,0.02));border:1px solid rgba(244,63,94,0.25);}
+.vl{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;}
+.vl.buy{color:var(--green)}.vl.hold{color:var(--red)}
+.vt{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#fff;margin-bottom:6px;}
+.vp{font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:500;margin-bottom:14px;}
+.vp.buy{color:var(--green)}.vp.hold{color:var(--red)}
+.vrow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:12.5px;}
+.vrow:last-child{border-bottom:none;}
+.vrl{color:var(--muted)}.vrv{font-family:'IBM Plex Mono',monospace;color:#fff;}
+.ib{background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.15);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;font-size:12.5px;color:var(--text);margin-top:12px;line-height:1.6;}
+.ib .ibl{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:5px;}
+.tab-row{display:flex;gap:7px;margin-bottom:16px;flex-wrap:wrap;}
+.tab-btn{padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12.5px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;}
+.tab-btn:hover{border-color:var(--border2);color:var(--text);}
+.tab-btn.active{background:var(--accent);border-color:var(--accent);color:#000;font-weight:600;}
+footer{text-align:center;padding:28px 0 0;border-top:1px solid var(--border);color:var(--muted);font-size:11.5px;line-height:1.9;}
+footer .mono{font-family:'IBM Plex Mono',monospace;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.anim{animation:fadeUp 0.55s ease both;}
+.d1{animation-delay:0.08s}.d2{animation-delay:0.16s}.d3{animation-delay:0.24s}
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+<header class="anim">
+  <div>
+    <div class="eyebrow">AIM EMBA 2027A · Corporate Finance FINMA205 · Prof. Manalac</div>
+    <h1>Aboitiz <span>Power</span> Corporation</h1>
+    <div class="subtitle">Cost of Capital During the Pandemic · Equity Valuation Dashboard · Analysis Date: January 3, 2021</div>
+  </div>
+  <div class="header-right">
+    <div class="badge">PSE: AP</div>
+    <div class="badge gold">Case W34098 · LT2 Workings</div>
+    <div class="badge">Session 9 · SMIF Analysis</div>
+  </div>
+</header>
+
+<div class="kpi-grid anim d1">
+  <div class="kpi"><div class="kpi-label">As-Is WACC (2020)</div><div class="kpi-value a">5.00%</div><div class="kpi-delta dn">▼ 160 bps vs 2019 (6.60%)</div></div>
+  <div class="kpi gk"><div class="kpi-label">Normalized WACC</div><div class="kpi-value g">5.73%</div><div class="kpi-delta dn">▼ 73 bps vs normalized Rf</div></div>
+  <div class="kpi grk"><div class="kpi-label">Implied Price (As-Is)</div><div class="kpi-value gr">₱35.77</div><div class="kpi-delta up">▲ +34.7% vs Market ₱26.55</div></div>
+  <div class="kpi rk"><div class="kpi-label">Implied Price (Normalized)</div><div class="kpi-value r">₱23.14</div><div class="kpi-delta dn">▼ −12.8% vs Market ₱26.55</div></div>
+  <div class="kpi pk"><div class="kpi-label">Breakeven WACC</div><div class="kpi-value p">5.52%</div><div class="kpi-delta">g=2.58% · Cushion: +52 bps</div></div>
+</div>
+
+<div class="g2 anim d2">
+  <div class="card">
+    <div class="section-title"><div class="dot"></div>WACC Decomposition: 2019 vs 2020</div>
+    <canvas id="waccChart"></canvas>
+    <div class="card-note">Bond Series D (7-yr quarterly) used as marginal cost of debt. Blume's adjusted beta. PH ERP = 6.56% (Damodaran).</div>
+  </div>
+  <div class="card">
+    <div class="section-title"><div class="dot g"></div>Capital Structure Shift (Market Value)</div>
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+      <div style="flex:1;min-width:120px;">
+        <div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:6px;font-family:'IBM Plex Mono',monospace;">2019</div>
+        <canvas id="cs19" style="max-height:170px;"></canvas>
+      </div>
+      <div style="flex:1;min-width:120px;">
+        <div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:6px;font-family:'IBM Plex Mono',monospace;">2020</div>
+        <canvas id="cs20" style="max-height:170px;"></canvas>
+      </div>
+    </div>
+    <div style="display:flex;gap:14px;margin-top:12px;flex-wrap:wrap;">
+      <div style="flex:1;text-align:center;">
+        <div style="font-size:10.5px;color:var(--muted);">Debt Weight</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;color:var(--red);">48.1% → 55.9%</div>
+      </div>
+      <div style="flex:1;text-align:center;">
+        <div style="font-size:10.5px;color:var(--muted);">Equity Weight</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;color:var(--green);">51.9% → 44.1%</div>
+      </div>
+    </div>
+    <div class="ib">
+      <div class="ibl">📉 Structural Shift</div>
+      Stock fell 22.4% (₱34.20→₱26.55), shrinking market cap. Debt's relative weight rose 781 bps — AP became more leveraged in capital structure terms even with no new borrowing.
+    </div>
+  </div>
+</div>
+
+<div class="g2 anim d3">
+  <div class="card">
+    <div class="section-title"><div class="dot p"></div>WACC Component Breakdown</div>
+    <table class="wacc-table">
+      <thead><tr><th>Component</th><th>2019</th><th>2020 As-Is</th><th>2020 Norm.</th><th>Δ (As-Is)</th></tr></thead>
+      <tbody>
+        <tr><td>Risk-Free Rate (Rf)</td><td>4.46%</td><td>3.00%</td><td>4.66%</td><td><span class="pill dn">−146 bps</span></td></tr>
+        <tr><td>Raw Beta (Bloomberg)</td><td>0.611</td><td>0.594</td><td>0.594</td><td><span class="pill dn">−0.017</span></td></tr>
+        <tr><td>Adjusted Beta (Blume's)</td><td>0.741</td><td>0.729</td><td>0.729</td><td><span class="pill dn">−0.011</span></td></tr>
+        <tr><td>ERP (Damodaran PH)</td><td>6.56%</td><td>6.56%</td><td>6.56%</td><td><span class="pill up">Unchanged</span></td></tr>
+        <tr><td>Cost of Equity (Ke)</td><td>9.32%</td><td>7.78%</td><td>9.45%</td><td><span class="pill dn">−154 bps</span></td></tr>
+        <tr><td>Pre-Tax Cost of Debt</td><td>5.25%</td><td>4.00%</td><td>4.00%</td><td><span class="pill dn">−125 bps</span></td></tr>
+        <tr><td>After-Tax Cost of Debt</td><td>3.67%</td><td>2.80%</td><td>2.80%</td><td><span class="pill dn">−87 bps</span></td></tr>
+        <tr><td>Weight of Debt (Wd)</td><td>48.12%</td><td>55.93%</td><td>55.93%</td><td><span class="pill up">+781 bps</span></td></tr>
+        <tr><td>Weight of Equity (We)</td><td>51.88%</td><td>44.07%</td><td>44.07%</td><td><span class="pill dn">−781 bps</span></td></tr>
+        <tr class="tot"><td><strong>WACC</strong></td><td><strong>6.60%</strong></td><td><strong>5.00%</strong></td><td><strong>5.73%</strong></td><td><span class="pill dn">−160 bps</span></td></tr>
+      </tbody>
+    </table>
+    <div class="card-note">Tax rate: 30% statutory. Normalized Rf = 10-yr avg 2011–2020 = 4.66%.</div>
+  </div>
+  <div class="card">
+    <div class="section-title"><div class="dot g"></div>PH 10-Year Government Securities Yield (2011–2020)</div>
+    <canvas id="yieldChart"></canvas>
+    <div class="ib" style="border-left-color:var(--gold);background:rgba(245,158,11,0.05);border-color:rgba(245,158,11,0.15);">
+      <div class="ibl" style="color:var(--gold);">⚡ Normalization Debate</div>
+      2020 yield (3.00%) = decade low. BSP cut 200 bps in 2020 alone. Duff &amp; Phelps advocates normalizing to 10-yr avg (4.66%). Damodaran disagrees — use prevailing rates.
+    </div>
+  </div>
+</div>
+
+<div class="g2 anim">
+  <div class="card">
+    <div class="section-title"><div class="dot gr"></div>Revenue &amp; EBIT: Historical + Forecast (₱ Millions)</div>
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchRev('both',this)">Revenue + EBIT</button>
+      <button class="tab-btn" onclick="switchRev('rev',this)">Revenue</button>
+      <button class="tab-btn" onclick="switchRev('ebit',this)">EBIT</button>
+    </div>
+    <canvas id="revChart"></canvas>
+    <div class="card-note">2020E = annualized from Q3 actuals. Revenue flat in 2021E, +1.58% in 2022E, then +2.58% CAGR through 2025E.</div>
+  </div>
+  <div class="card">
+    <div class="section-title"><div class="dot"></div>Free Cash Flow Projections (₱ Millions)</div>
+    <canvas id="fcfChart"></canvas>
+    <div class="ib">
+      <div class="ibl">🏗️ CAPEX Ramp-Up Signal</div>
+      FCF declines 2021→2024 as CAPEX scales from ₱7B to ₱16B — AP's 50:50 clean/thermal goal by 2030. This is growth investment, not operational deterioration.
+    </div>
+  </div>
+</div>
+
+<div class="g2 anim">
+  <div class="card">
+    <div class="section-title"><div class="dot p"></div>WACC Contribution: Debt vs Equity Components (%)</div>
+    <canvas id="contribChart"></canvas>
+    <div class="card-note">Both components compressed in 2020. Normalized scenario restores Ke to near-2019 level (Rf normalization), but Kd stays low (YTM-based, bond market driven).</div>
+  </div>
+  <div class="card">
+    <div class="section-title"><div class="dot g"></div>PH Treasury Yield Curve Shape: 2018 vs 2019 vs 2020</div>
+    <canvas id="yieldCurveChart"></canvas>
+    <div class="card-note">2018 = peak BSP tightening cycle (7.07% at 10-yr). 2020 = COVID easing floor (3.00%). Entire curve shifted dramatically downward across all tenors.</div>
+  </div>
+</div>
+
+<div class="g1 anim">
+  <div class="card">
+    <div class="section-title"><div class="dot g"></div>Sensitivity Analysis: Implied Price/Share (₱) — WACC × Terminal Growth Rate g</div>
+    <div style="overflow-x:auto;"><table class="heat-table" id="heatTable"></table></div>
+    <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;align-items:center;font-size:11.5px;color:var(--muted);">
+      <div style="display:flex;gap:5px;align-items:center;"><div style="width:14px;height:14px;border-radius:3px;background:rgba(16,217,138,0.55);"></div>Strong Buy (≫₱26.55)</div>
+      <div style="display:flex;gap:5px;align-items:center;"><div style="width:14px;height:14px;border-radius:3px;background:rgba(245,158,11,0.5);"></div>Near Market</div>
+      <div style="display:flex;gap:5px;align-items:center;"><div style="width:14px;height:14px;border-radius:3px;background:rgba(244,63,94,0.45);"></div>Below Market</div>
+      <div style="display:flex;gap:5px;align-items:center;color:var(--accent);"><div style="width:14px;height:14px;border-radius:3px;outline:2px solid var(--accent);"></div>★ As-Is · ◆ Normalized</div>
+    </div>
+  </div>
+</div>
+
+<div class="g1 anim">
+  <div class="card">
+    <div class="section-title"><div class="dot gr"></div>Investment Verdict: As-Is vs Normalized WACC</div>
+    <div class="verdict-grid">
+      <div class="vc buy">
+        <div class="vl buy">✅ Scenario A — As-Is WACC (5.00%)</div>
+        <div class="vt">BUY</div>
+        <div class="vp buy">₱35.77</div>
+        <div class="vrow"><span class="vrl">WACC</span><span class="vrv">5.00%</span></div>
+        <div class="vrow"><span class="vrl">Risk-Free Rate</span><span class="vrv">3.00% (prevailing)</span></div>
+        <div class="vrow"><span class="vrl">Market Price</span><span class="vrv">₱26.55</span></div>
+        <div class="vrow"><span class="vrl">Implied Upside</span><span class="vrv" style="color:var(--green)">+34.7%</span></div>
+        <div class="vrow"><span class="vrl">Cushion to Breakeven</span><span class="vrv" style="color:var(--green)">+52 bps</span></div>
+        <div class="vrow"><span class="vrl">Enterprise Value</span><span class="vrv">₱390.8B</span></div>
+        <div class="vrow"><span class="vrl">Rationale</span><span class="vrv" style="color:var(--green)">Undervalued vs DCF</span></div>
+      </div>
+      <div class="vc hold">
+        <div class="vl hold">⚠️ Scenario B — Normalized WACC (5.73%)</div>
+        <div class="vt">DO NOT BUY</div>
+        <div class="vp hold">₱23.14</div>
+        <div class="vrow"><span class="vrl">WACC</span><span class="vrv">5.73%</span></div>
+        <div class="vrow"><span class="vrl">Risk-Free Rate</span><span class="vrv">4.66% (10-yr avg)</span></div>
+        <div class="vrow"><span class="vrl">Market Price</span><span class="vrv">₱26.55</span></div>
+        <div class="vrow"><span class="vrl">Implied Downside</span><span class="vrv" style="color:var(--red)">−12.8%</span></div>
+        <div class="vrow"><span class="vrl">Overshoot vs Breakeven</span><span class="vrv" style="color:var(--red)">+21 bps above</span></div>
+        <div class="vrow"><span class="vrl">Enterprise Value</span><span class="vrv">₱365.6B</span></div>
+        <div class="vrow"><span class="vrl">Rationale</span><span class="vrv" style="color:var(--red)">Overvalued at Mkt</span></div>
+      </div>
+    </div>
+    <div class="ib" style="margin-top:18px;">
+      <div class="ibl">📌 The Normalization Question — ₱12.63/share difference</div>
+      The entire BUY vs DON'T BUY split comes down to one 73-basis-point judgment: what is the risk-free rate? Damodaran: use today's rate — it reflects real market conditions. Duff &amp; Phelps: normalize — today's rates are a COVID distortion. Given AP's essential-service status (fully operational through ECQ), PRS Aaa bond rating, 50:50 Cleanergy target, and utility-grade cash flow stability, the <strong>as-is WACC with a BUY recommendation</strong> is defensible — provided the analyst acknowledges the rate normalization risk explicitly.
+    </div>
+  </div>
+</div>
+
+<footer class="anim">
+  <div class="mono">AIM EMBA 2027A · FINMA205 Corporate Finance · Prof. Maria Theresa P. Manalac</div>
+  <div>Aboitiz Power Corporation (AP:PSE) · Ivey Case W34098 · LT2 Group Analysis</div>
+  <div style="margin-top:6px;">Data: Bloomberg LP · PDS Group · Damodaran Online · AP SEC Filings 17-Q Q3 2020 &amp; 17-A 2019 · Philippine Statistics Authority</div>
+</footer>
+</div>
+
+<script>
+Chart.defaults.color='#6b7fa3';
+Chart.defaults.borderColor='rgba(255,255,255,0.06)';
+Chart.defaults.font.family="'IBM Plex Mono',monospace";
+const AC='#38bdf8',GO='#f59e0b',GR='#10d98a',RE='#f43f5e',PU='#a78bfa',OR='#fb923c';
+
+// WACC Grouped Bar
+new Chart(document.getElementById('waccChart'),{
+  type:'bar',
+  data:{
+    labels:['Rf (%)','Blume Beta','Ke (%)','Kd AT (%)','WACC (%)'],
+    datasets:[
+      {label:'2019',data:[4.46,0.741,9.32,3.67,6.60],backgroundColor:'rgba(167,139,250,0.45)',borderColor:PU,borderWidth:1.5,borderRadius:4},
+      {label:'2020 As-Is',data:[3.00,0.729,7.78,2.80,5.00],backgroundColor:'rgba(56,189,248,0.4)',borderColor:AC,borderWidth:1.5,borderRadius:4},
+      {label:'2020 Normalized',data:[4.66,0.729,9.45,2.80,5.73],backgroundColor:'rgba(245,158,11,0.4)',borderColor:GO,borderWidth:1.5,borderRadius:4}
+    ]
+  },
+  options:{responsive:true,plugins:{legend:{labels:{font:{size:10.5},padding:12,boxWidth:10}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw.toFixed(3)}`}}},
+    scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{font:{size:10}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{font:{size:10}}}}}
+});
+
+// Donuts
+const dOpts=(d,e)=>({type:'doughnut',data:{labels:['Debt','Equity'],datasets:[{data:[d,e],backgroundColor:['rgba(244,63,94,0.55)','rgba(16,217,138,0.55)'],borderColor:['#f43f5e','#10d98a'],borderWidth:2,hoverOffset:6}]},options:{cutout:'66%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.raw.toFixed(1)}%`}}}}});
+new Chart(document.getElementById('cs19'),dOpts(48.12,51.88));
+new Chart(document.getElementById('cs20'),dOpts(55.93,44.07));
+
+// 10-yr Yield History
+new Chart(document.getElementById('yieldChart'),{
+  type:'line',
+  data:{
+    labels:['2011','2012','2013','2014','2015','2016','2017','2018','2019','2020'],
+    datasets:[
+      {label:'10-yr PH Treasury (%)',data:[5.31,4.51,3.81,4.07,4.42,4.80,5.17,7.07,4.46,3.00],borderColor:GO,backgroundColor:'rgba(245,158,11,0.08)',borderWidth:2.5,fill:true,tension:0.4,pointBackgroundColor:GO,pointRadius:5,pointHoverRadius:8},
+      {label:'10-yr Avg (4.66%)',data:[4.662,4.662,4.662,4.662,4.662,4.662,4.662,4.662,4.662,4.662],borderColor:AC,borderWidth:1.5,borderDash:[6,4],pointRadius:0,fill:false}
+    ]
+  },
+  options:{responsive:true,plugins:{legend:{labels:{font:{size:10.5},boxWidth:10}}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'%',font:{size:10}},min:2,max:8}}}
+});
+
+// Revenue + EBIT
+const yrs=['2017','2018','2019','2020E','2021E','2022E','2023E','2024E','2025E'];
+const rev=[119391,131572,125635,108173,108173,109882,112717,115625,118608];
+const ebit=[34174,36497,28856,25703,24845,25238,25889,26557,27242];
+let rChart=new Chart(document.getElementById('revChart'),{
+  type:'line',
+  data:{labels:yrs,datasets:[
+    {label:'Revenue (₱M)',data:rev,borderColor:AC,backgroundColor:'rgba(56,189,248,0.08)',borderWidth:2.5,fill:true,tension:0.35,pointBackgroundColor:AC,pointRadius:5,pointHoverRadius:8,yAxisID:'y'},
+    {label:'EBIT (₱M)',data:ebit,borderColor:GR,backgroundColor:'rgba(16,217,138,0.06)',borderWidth:2.5,fill:true,tension:0.35,pointBackgroundColor:GR,pointRadius:5,pointHoverRadius:8,yAxisID:'y'}
+  ]},
+  options:{responsive:true,plugins:{legend:{labels:{font:{size:10.5},boxWidth:10}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ₱${c.raw.toLocaleString()}M`}}},
+    scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{font:{size:10}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>'₱'+(v/1000).toFixed(0)+'B',font:{size:10}}}}}
+});
+window.switchRev=(m,btn)=>{
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  rChart.data.datasets[0].hidden=(m==='ebit');
+  rChart.data.datasets[1].hidden=(m==='rev');
+  rChart.update();
+};
+
+// FCF + Stacked
+new Chart(document.getElementById('fcfChart'),{
+  type:'bar',
+  data:{labels:['2021E','2022E','2023E','2024E','2025E'],datasets:[
+    {label:'Operating Cash Flow',data:[25912,26321,27000,27697,28412],backgroundColor:'rgba(56,189,248,0.3)',borderColor:AC,borderWidth:1.5,borderRadius:4,stack:'s'},
+    {label:'Less: CAPEX',data:[-7000,-10000,-12000,-16000,-16000],backgroundColor:'rgba(244,63,94,0.35)',borderColor:RE,borderWidth:1.5,borderRadius:4,stack:'s'},
+    {label:'Free Cash Flow',data:[18548,16240,14866,11559,12270],type:'line',borderColor:GR,borderWidth:2.5,pointBackgroundColor:GR,pointRadius:6,pointHoverRadius:9,fill:false}
+  ]},
+  options:{responsive:true,plugins:{legend:{labels:{font:{size:10.5},boxWidth:10}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ₱${c.raw.toLocaleString()}M`}}},
+    scales:{x:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'}},y:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>'₱'+(v/1000).toFixed(0)+'B',font:{size:10}}}}}
+});
+
+// Contribution stacked bar
+new Chart(document.getElementById('contribChart'),{
+  type:'bar',
+  data:{labels:['2019','2020 As-Is','2020 Normalized'],datasets:[
+    {label:'Wd×Kd(1−T)',data:[1.768,1.567,1.567],backgroundColor:'rgba(244,63,94,0.5)',borderColor:RE,borderWidth:1.5,borderRadius:4,stack:'s'},
+    {label:'We×Ke',data:[4.835,3.429,4.163],backgroundColor:'rgba(56,189,248,0.45)',borderColor:AC,borderWidth:1.5,borderRadius:4,stack:'s'}
+  ]},
+  options:{responsive:true,plugins:{legend:{labels:{font:{size:10.5},boxWidth:10}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw.toFixed(3)}%`}}},
+    scales:{x:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'}},y:{stacked:true,max:8,grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'%',font:{size:10}}}}}
+});
+
+// Yield Curve Shape
+new Chart(document.getElementById('yieldCurveChart'),{
+  type:'line',
+  data:{
+    labels:['1yr','2yr','3yr','4yr','5yr','6yr','7yr','8yr','9yr','10yr'],
+    datasets:[
+      {label:'2018 (BSP Peak)',data:[6.65,6.89,6.98,7.02,7.04,7.05,7.06,7.06,7.07,7.07],borderColor:RE,backgroundColor:'rgba(244,63,94,0.06)',borderWidth:2,fill:true,tension:0.3,pointRadius:4},
+      {label:'2019',data:[3.66,3.74,3.83,3.94,4.06,4.18,4.28,4.36,4.42,4.46],borderColor:PU,borderWidth:2,fill:false,tension:0.3,pointRadius:4},
+      {label:'2020 (COVID Low)',data:[1.57,1.85,2.08,2.30,2.50,2.67,2.78,2.86,2.93,3.00],borderColor:AC,backgroundColor:'rgba(56,189,248,0.06)',borderWidth:2.5,fill:true,tension:0.3,pointRadius:4}
+    ]
+  },
+  options:{responsive:true,plugins:{legend:{labels:{font:{size:10.5},boxWidth:10}}},
+    scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{font:{size:10}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'%',font:{size:10}},min:0,max:8}}}
+});
+
+// SENSITIVITY HEATMAP
+const waccList=[0.04,0.045,0.05,0.055,0.06,0.065,0.07];
+const gList=[0.015,0.02,0.025,0.03,0.035,0.04];
+const prices=[
+  [38.08,52.33,76.09,123.60,266.14,null],
+  [27.59,36.91,50.89,74.19,120.81,260.64],
+  [20.09,26.63,35.77,49.49,72.35,118.08],
+  [14.47,19.28,25.69,34.66,48.12,70.55],
+  [10.09,13.76,18.48,24.77,33.57,46.78],
+  [6.59,9.47,13.07,17.70,23.87,32.51],
+  [3.72,6.03,8.86,12.39,16.94,22.99],
+];
+const labels=[
+  ['₱38.08','₱52.33','₱76.09','₱123.60','₱266.14','—'],
+  ['₱27.59','₱36.91','₱50.89','₱74.19','₱120.81','₱260.64'],
+  ['₱20.09','₱26.63','₱35.77','₱49.49','₱72.35','₱118.08'],
+  ['₱14.47','₱19.28','₱25.69','₱34.66','₱48.12','₱70.55'],
+  ['₱10.09','₱13.76','₱18.48','₱24.77','₱33.57','₱46.78'],
+  ['₱6.59','₱9.47','₱13.07','₱17.70','₱23.87','₱32.51'],
+  ['₱3.72','₱6.03','₱8.86','₱12.39','₱16.94','₱22.99'],
+];
+const getBg=p=>{
+  if(!p) return 'rgba(255,255,255,0.03)';
+  if(p>50) return 'rgba(16,217,138,0.6)';
+  if(p>35) return 'rgba(16,217,138,0.38)';
+  if(p>=26.55) return 'rgba(245,158,11,0.52)';
+  if(p>=18) return 'rgba(244,63,94,0.28)';
+  return 'rgba(244,63,94,0.5)';
+};
+const tbl=document.getElementById('heatTable');
+tbl.innerHTML='<tr><th>WACC \\ g</th>'+gList.map(g=>`<th>${(g*100).toFixed(1)}%</th>`).join('')+'</tr>';
+waccList.forEach((w,ri)=>{
+  const isAs=ri===2,isNm=ri===3;
+  let r=`<tr><th style="${isAs?'color:#38bdf8;':isNm?'color:#f59e0b;':''}">${(w*100).toFixed(1)}%${isAs?' ★':isNm?' ◆':''}</th>`;
+  labels[ri].forEach((cell,ci)=>{
+    const p=prices[ri][ci];
+    const bg=getBg(p);
+    const isAct=ri===2&&ci===2;
+    const isNA=ri===3&&ci===2;
+    const tc=p&&p>=26.55?'#fff':p&&p<15?'rgba(244,63,94,0.9)':'#e8edf7';
+    r+=`<td style="background:${bg};color:${tc};${isAct?'outline:2px solid #38bdf8;outline-offset:-2px;font-weight:700;color:#38bdf8;':''}${isNA?'outline:2px solid #f59e0b;outline-offset:-2px;font-weight:700;color:#f59e0b;':''}">${cell}</td>`;
+  });
+  r+='</tr>';
+  tbl.innerHTML+=r;
+});
+tbl.innerHTML+=`<tr><td colspan="7" style="text-align:left;padding:9px 12px;color:#6b7fa3;font-size:11px;font-family:'DM Sans',sans-serif;border:none;">★ As-Is WACC (5.00%) · ◆ Normalized (5.50%, nearest row) · Market Price = ₱26.55 · Base g = 2.58% · Breakeven WACC = 5.52%</td></tr>`;
+</script>
+</body>
+</html>
