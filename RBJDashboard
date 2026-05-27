@@ -1,0 +1,502 @@
+import { useState, useMemo } from "react";
+
+const RAW = [
+  [1,"AFC",687.0,153.0,464.0],[2,"GDF",404.0,62.0,190.0],
+  [3,"SAF",71.8,14.4,46.4],[4,"CEP",84.9,10.9,36.7],
+  [5,"TRB",96.5,10.7,27.4],[6,"AFS",32.1,8.5,23.3],
+  [7,"SCY",28.1,3.4,10.5],[8,"5RP",13.1,3.3,7.4],
+  [9,"TIT",21.0,1.3,4.3],[10,"SPT",19.4,1.3,4.2],
+  [11,"EAG",15.1,0.511,3.6],[12,"ALF",10.9,2.2,3.8],
+  [13,"WPT",8.8,1.2,3.4],[14,"AFI",13.8,1.3,3.4],
+  [15,"RXG",9.3,1.3,3.1],[16,"CYC",21.8,1.1,2.5],
+  [17,"PAR",6.7,0.838,2.4],[18,"EXE",7.0,0.787,1.9],
+  [19,"AN3",7.7,0.522,1.9],[20,"AN1",8.0,0.717,1.7],
+  [21,"PRM",6.6,0.664,1.6],[22,"EMP",5.6,0.316,1.5],
+  [23,"CON",18.8,0.300,1.5],[24,"COL",4.0,0.306,1.3],
+  [25,"SUP",5.6,0.324,1.0],[26,"GCF",10.8,0.400,1.0],
+  [27,"FLE",8.1,0.672,0.971],[28,"LGN",3.1,0.471,0.917],
+  [29,"PIN",5.0,0.513,0.869],[30,"MAX",3.7,0.212,0.860],
+  [31,"ADR",3.9,0.103,0.751],[32,"FMC",5.9,0.235,0.550],
+  [33,"CEN",4.7,0.036,0.479],[34,"ELT",5.9,0.219,0.236],
+  [35,"CRE",0.75,0.010,0.100],[36,"INV",3.7,0.204,-0.046],
+  [37,"VGD",1.8,-0.277,-0.130],[38,"PRU",1.4,-0.163,-0.209],
+  [39,"FOR",2.2,0.103,-0.447],[40,"AVI",2.3,-0.356,-0.548],
+  [41,"ATI",0.621,-0.285,-0.744],[42,"WFD",18.4,-0.642,-0.861],
+  [43,"GAM",0.841,-0.276,-1.3],[44,"GDL",1.6,-0.674,-2.3],
+  [45,"GSL",54.9,1.9,-2.3],[46,"AMI",2.5,-0.961,-2.4],
+  [47,"ASA",17.8,-0.842,-3.2],[48,"CCF",3.2,-1.2,-4.2],
+];
+
+const initBase = () => {
+  const o = {};
+  RAW.forEach(([,code]) => { o[code] = { industry:"",yearIncorp:"",jordanPct:"",jvPct:"" }; });
+  return o;
+};
+const initFin = () => {
+  const o = {};
+  RAW.forEach(([,code]) => {
+    o[code] = { gp:"",ebit:"",intExp:"",cash:"",sti:"",ar:"",inv:"",ca:"",ta:"",cl:"",debt:"",equity:"" };
+  });
+  return o;
+};
+
+const getHealth = (niat, rev, niYtd) => {
+  if (niat < 0) return "ICU";
+  if (niat < 1 || niYtd/(rev*3) < 0.015) return "Watch";
+  return "Healthy";
+};
+
+const n = (v) => v !== "" && v !== null && v !== undefined && !isNaN(parseFloat(v)) ? parseFloat(v) : null;
+const fmtN = (v, dec=3) => {
+  if (v === null || v === undefined || isNaN(v)) return "—";
+  const abs = Math.abs(v), s = abs.toFixed(dec).replace(/\B(?=(\d{3})+(?!\d))/g,",");
+  return v < 0 ? `(${s})` : s;
+};
+const fmtP = (v, dec=1) => v === null || isNaN(v) ? "—" : `${(v*100).toFixed(dec)}%`;
+const fmtX = (v, dec=2) => v === null || isNaN(v) ? "—" : `${v.toFixed(dec)}x`;
+
+const computeRatios = (rev, niYtd, niat, fd) => {
+  const annR = rev * 12, q1R = rev * 3;
+  const gp=n(fd.gp), ebit=n(fd.ebit), intE=n(fd.intExp), cash=n(fd.cash),
+        sti=n(fd.sti), ar=n(fd.ar), inv=n(fd.inv), ca=n(fd.ca), ta=n(fd.ta),
+        cl=n(fd.cl), debt=n(fd.debt), eq=n(fd.equity);
+  return {
+    grossMargin:     gp!==null && annR ? gp/annR : null,
+    netMarginTTM:    annR ? niat/annR : null,
+    netMarginQ1:     q1R ? niYtd/q1R : null,
+    roa:             ta ? niat/ta : null,
+    roe:             eq ? niat/eq : null,
+    currentRatio:    ca!==null && cl ? ca/cl : null,
+    quickRatio:      ca!==null && inv!==null && cl ? (ca-inv)/cl : null,
+    acidTest:        cash!==null && sti!==null && ar!==null && cl ? (cash+sti+ar)/cl : null,
+    cashRatio:       cash!==null && cl ? cash/cl : null,
+    debtToEquity:    debt!==null && eq ? debt/eq : null,
+    intCoverage:     ebit!==null && intE ? ebit/intE : null,
+    assetTurnover:   ta ? annR/ta : null,
+    recvTurnover:    ar ? annR/ar : null,
+    invTurnover:     inv ? annR/inv : null,
+  };
+};
+
+const BENCHMARKS = {
+  grossMargin:   { high:0.30, low:0.15, dir:"high", label:"Gross Margin (TTM)" },
+  netMarginTTM:  { high:0.10, low:0.05, dir:"high", label:"Net Margin (TTM)" },
+  netMarginQ1:   { high:0.10, low:0.05, dir:"high", label:"Net Margin (Q1)" },
+  roa:           { high:0.10, low:0.05, dir:"high", label:"ROA" },
+  roe:           { high:0.15, low:0.08, dir:"high", label:"ROE" },
+  currentRatio:  { high:2.0,  low:1.0,  dir:"high", label:"Current Ratio" },
+  quickRatio:    { high:1.0,  low:0.7,  dir:"high", label:"Quick Ratio" },
+  acidTest:      { high:1.0,  low:0.5,  dir:"high", label:"Acid-Test Ratio" },
+  cashRatio:     { high:0.5,  low:0.2,  dir:"high", label:"Cash Ratio" },
+  debtToEquity:  { high:1.0,  low:2.0,  dir:"low",  label:"Debt-to-Equity" },
+  intCoverage:   { high:3.0,  low:1.5,  dir:"high", label:"Interest Coverage" },
+  assetTurnover: { high:2.0,  low:1.0,  dir:"high", label:"Asset Turnover" },
+  recvTurnover:  { high:8.0,  low:4.0,  dir:"high", label:"Receivables Turnover" },
+  invTurnover:   { high:6.0,  low:3.0,  dir:"high", label:"Inventory Turnover" },
+};
+
+const getRatioColor = (key, val) => {
+  if (val === null || isNaN(val)) return { bg:"transparent", text:"#3d5a78" };
+  const b = BENCHMARKS[key];
+  if (!b) return { bg:"transparent", text:"#e8dcc8" };
+  if (b.dir === "high") {
+    if (val >= b.high) return { bg:"rgba(21,128,61,0.25)", text:"#86efac" };
+    if (val >= b.low)  return { bg:"rgba(161,98,7,0.2)",  text:"#fde68a" };
+    return { bg:"rgba(153,27,27,0.25)", text:"#fca5a5" };
+  } else {
+    if (val <= b.high) return { bg:"rgba(21,128,61,0.25)", text:"#86efac" };
+    if (val <= b.low)  return { bg:"rgba(161,98,7,0.2)",  text:"#fde68a" };
+    return { bg:"rgba(153,27,27,0.25)", text:"#fca5a5" };
+  }
+};
+
+const HEALTH_S = {
+  Healthy:{ bg:"#064e3b", text:"#6ee7b7", border:"#059669" },
+  Watch:  { bg:"#451a03", text:"#fcd34d", border:"#d97706" },
+  ICU:    { bg:"#450a0a", text:"#fca5a5", border:"#dc2626" },
+};
+
+const TABS = [
+  { id:"overview",      label:"Overview",      color:"#c9a84c" },
+  { id:"profitability", label:"Profitability", color:"#60a5fa" },
+  { id:"liquidity",     label:"Liquidity",     color:"#34d399" },
+  { id:"leverage",      label:"Leverage",      color:"#f87171" },
+  { id:"efficiency",    label:"Efficiency",    color:"#a78bfa" },
+];
+
+const FIN_FIELDS = {
+  profitability: [
+    { key:"gp",     label:"Gross Profit (TTM, PHP M)",       ph:"e.g. 120.5" },
+    { key:"ebit",   label:"EBIT (TTM, PHP M)",               ph:"e.g. 95.0"  },
+    { key:"intExp", label:"Interest Expense (TTM, PHP M)",   ph:"e.g. 12.0"  },
+  ],
+  liquidity: [
+    { key:"cash",   label:"Cash & Equivalents (PHP M)",      ph:"e.g. 45.0"  },
+    { key:"sti",    label:"Short-term Investments (PHP M)",  ph:"e.g. 10.0"  },
+    { key:"ar",     label:"Accounts Receivable (PHP M)",     ph:"e.g. 60.0"  },
+    { key:"inv",    label:"Inventory (PHP M) [0 if N/A]",    ph:"0"          },
+    { key:"ca",     label:"Total Current Assets (PHP M)",    ph:"e.g. 130.0" },
+    { key:"cl",     label:"Total Current Liabilities (PHP M)",ph:"e.g. 80.0" },
+  ],
+  leverage: [
+    { key:"ebit",   label:"EBIT (TTM, PHP M)",               ph:"e.g. 95.0"  },
+    { key:"intExp", label:"Interest Expense (TTM, PHP M)",   ph:"e.g. 12.0"  },
+    { key:"debt",   label:"Total Debt (PHP M)",              ph:"e.g. 200.0" },
+    { key:"equity", label:"Shareholders' Equity (PHP M)",    ph:"e.g. 350.0" },
+  ],
+  efficiency: [
+    { key:"ta",     label:"Total Assets (PHP M)",            ph:"e.g. 800.0" },
+    { key:"ar",     label:"Accounts Receivable (PHP M)",     ph:"e.g. 60.0"  },
+    { key:"inv",    label:"Inventory (PHP M) [0 if N/A]",    ph:"0"          },
+  ],
+};
+
+const TAB_COLS = {
+  overview: [
+    { key:"rev",        label:"Rev/Mo (M)",   fmt: v=>fmtN(v), color:"#e8dcc8" },
+    { key:"niYtd",      label:"Q1 NI (M)",    fmt: v=>fmtN(v), color: v=>v>=0?"#6ee7b7":"#fca5a5" },
+    { key:"niat",       label:"NIAT (M)",      fmt: v=>fmtN(v), color: v=>v>=0?"#e8dcc8":"#fca5a5" },
+    { key:"q1Margin",   label:"Q1 Margin",    fmt: v=>fmtP(v), ratioKey:"netMarginQ1" },
+    { key:"pctPaced",   label:"% Paced",      fmt: v=>v!==null?fmtP(v):"—", color: v=>v!==null&&v>0.30?"#86efac":v!==null?"#fde68a":"#3d5a78" },
+    { key:"annNI",      label:"Ann. NI (M)",  fmt: v=>fmtN(v), color: v=>v>=0?"#c9a84c":"#fca5a5" },
+  ],
+  profitability: [
+    { key:"grossMargin",  label:"Gross Margin",    fmt:fmtP, ratioKey:"grossMargin"  },
+    { key:"netMarginTTM", label:"Net Margin (TTM)",fmt:fmtP, ratioKey:"netMarginTTM" },
+    { key:"netMarginQ1",  label:"Net Margin (Q1)", fmt:fmtP, ratioKey:"netMarginQ1"  },
+    { key:"roa",          label:"ROA",             fmt:fmtP, ratioKey:"roa"           },
+    { key:"roe",          label:"ROE",             fmt:fmtP, ratioKey:"roe"           },
+  ],
+  liquidity: [
+    { key:"currentRatio", label:"Current Ratio",  fmt:fmtX, ratioKey:"currentRatio" },
+    { key:"quickRatio",   label:"Quick Ratio",    fmt:fmtX, ratioKey:"quickRatio"   },
+    { key:"acidTest",     label:"Acid-Test",      fmt:fmtX, ratioKey:"acidTest"     },
+    { key:"cashRatio",    label:"Cash Ratio",     fmt:fmtX, ratioKey:"cashRatio"    },
+  ],
+  leverage: [
+    { key:"debtToEquity", label:"D/E Ratio",      fmt:fmtX, ratioKey:"debtToEquity" },
+    { key:"intCoverage",  label:"Int. Coverage",  fmt:fmtX, ratioKey:"intCoverage"  },
+  ],
+  efficiency: [
+    { key:"assetTurnover",label:"Asset Turnover", fmt:fmtX, ratioKey:"assetTurnover" },
+    { key:"recvTurnover", label:"Recv. Turnover", fmt:fmtX, ratioKey:"recvTurnover"  },
+    { key:"invTurnover",  label:"Inv. Turnover",  fmt:fmtX, ratioKey:"invTurnover"   },
+  ],
+};
+
+export default function App() {
+  const [base, setBase]       = useState(initBase);
+  const [fin, setFin]         = useState(initFin);
+  const [tab, setTab]         = useState("overview");
+  const [filter, setFilter]   = useState("All");
+  const [sortBy, setSortBy]   = useState("rank");
+  const [editMode, setEdit]   = useState(false);
+  const [expandRow, setExpand]= useState(null);
+
+  const companies = useMemo(() => RAW.map(([num,code,rev,niYtd,niat]) => {
+    const b=base[code], fd=fin[code];
+    const health=getHealth(niat,rev,niYtd);
+    const q1Margin=niYtd/(rev*3);
+    const pctPaced=niat>0?niYtd/niat:null;
+    const annNI=niYtd*4;
+    const jordanPct=b.jordanPct!==""?parseFloat(b.jordanPct)/100:null;
+    const ratios=computeRatios(rev,niYtd,niat,fd);
+    return {
+      num,code,rev,niYtd,niat,health,q1Margin,pctPaced,annNI,jordanPct,
+      industry:b.industry, yearIncorp:b.yearIncorp,
+      jordanPct:b.jordanPct, jvPct:b.jvPct,
+      yrsActive:b.yearIncorp!==""?2026-parseInt(b.yearIncorp):null,
+      ...ratios
+    };
+  }), [base, fin]);
+
+  const filtered = useMemo(() => {
+    let d = filter==="All" ? companies : companies.filter(c=>c.health===filter);
+    const sorts = {
+      rank:(a,b)=>a.num-b.num, rev:(a,b)=>b.rev-a.rev,
+      niat:(a,b)=>b.niat-a.niat, margin:(a,b)=>b.q1Margin-a.q1Margin
+    };
+    return [...d].sort(sorts[sortBy]||sorts.rank);
+  }, [companies,filter,sortBy]);
+
+  const totals = useMemo(()=>({
+    rev:companies.reduce((s,c)=>s+c.rev,0),
+    niYtd:companies.reduce((s,c)=>s+c.niYtd,0),
+    niat:companies.reduce((s,c)=>s+c.niat,0),
+    annNI:companies.reduce((s,c)=>s+c.annNI,0),
+    healthy:companies.filter(c=>c.health==="Healthy").length,
+    watch:companies.filter(c=>c.health==="Watch").length,
+    icu:companies.filter(c=>c.health==="ICU").length,
+  }),[companies]);
+
+  const setB = (code,f,v) => setBase(p=>({...p,[code]:{...p[code],[f]:v}}));
+  const setF = (code,f,v) => setFin(p=>({...p,[code]:{...p[code],[f]:v}}));
+
+  const finFilled = useMemo(()=>{
+    let t=0,f=0;
+    RAW.forEach(([,code])=>{
+      Object.values(fin[code]).forEach(v=>{t++; if(v!=="")f++;});
+    });
+    return Math.round(f/t*100);
+  },[fin]);
+
+  const curTab = TABS.find(t=>t.id===tab);
+  const cols = TAB_COLS[tab];
+
+  const BM_INFO = {
+    profitability:[
+      ["Gross Margin",   "≥30% ●  15–30% ●  <15%"],
+      ["Net Margin TTM", "≥10% ●  5–10%  ●  <5%"],
+      ["Net Margin Q1",  "≥10% ●  5–10%  ●  <5%"],
+      ["ROA",            "≥10% ●  5–10%  ●  <5%"],
+      ["ROE",            "≥15% ●  8–15%  ●  <8%"],
+    ],
+    liquidity:[
+      ["Current Ratio",  "≥2.0× ●  1.0–2.0× ●  <1.0×"],
+      ["Quick Ratio",    "≥1.0× ●  0.7–1.0× ●  <0.7×"],
+      ["Acid-Test",      "≥1.0× ●  0.5–1.0× ●  <0.5×"],
+      ["Cash Ratio",     "≥0.5× ●  0.2–0.5× ●  <0.2×"],
+    ],
+    leverage:[
+      ["Debt-to-Equity", "≤1.0× ●  1.0–2.0× ●  >2.0×"],
+      ["Int. Coverage",  "≥3.0× ●  1.5–3.0× ●  <1.5×"],
+    ],
+    efficiency:[
+      ["Asset Turnover", "≥2.0× ●  1.0–2.0× ●  <1.0×"],
+      ["Recv. Turnover", "≥8.0× ●  4.0–8.0× ●  <4.0×"],
+      ["Inv. Turnover",  "≥6.0× ●  3.0–6.0× ●  <3.0×"],
+    ],
+  };
+
+  return (
+    <div style={{fontFamily:"'Georgia',serif",background:"#0c1929",minHeight:"100vh",color:"#e8dcc8"}}>
+
+      {/* Header */}
+      <div style={{background:"linear-gradient(135deg,#0c1929 0%,#1a3a6b 100%)",borderBottom:"2px solid #c9a84c",padding:"1.25rem 1.5rem 0.75rem"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:"0.75rem"}}>
+          <div>
+            <div style={{fontSize:"0.62rem",letterSpacing:"0.2em",color:"#c9a84c",textTransform:"uppercase",marginBottom:"0.2rem"}}>Jordan Family Holdings · Asialink JV</div>
+            <h1 style={{margin:0,fontSize:"1.4rem",fontWeight:"bold",color:"#f5e6c8"}}>Portfolio Master Dashboard</h1>
+            <div style={{fontSize:"0.7rem",color:"#7a9bbf",marginTop:"0.15rem"}}>March 2026 · 48 Companies · PHP Millions</div>
+          </div>
+          <div style={{display:"flex",gap:"0.6rem",alignItems:"center",flexWrap:"wrap"}}>
+            <div style={{background:"#0f2038",border:"1px solid #2d5a8e",borderRadius:"8px",padding:"0.35rem 0.75rem",fontSize:"0.68rem",color:"#7a9bbf",minWidth:"120px"}}>
+              <div><span style={{color:"#c9a84c",fontWeight:"bold"}}>{finFilled}%</span> fin. data filled</div>
+              <div style={{height:"4px",background:"#0c1929",borderRadius:"2px",marginTop:"4px"}}>
+                <div style={{height:"100%",width:`${finFilled}%`,background:"#c9a84c",borderRadius:"2px",transition:"width 0.3s"}}/>
+              </div>
+            </div>
+            <button onClick={()=>setEdit(e=>!e)}
+              style={{background:editMode?"#c9a84c":"#0f2038",color:editMode?"#0c1929":"#c9a84c",
+                      border:"1px solid #c9a84c",borderRadius:"6px",padding:"0.35rem 0.9rem",
+                      cursor:"pointer",fontSize:"0.72rem",fontWeight:"bold",letterSpacing:"0.04em"}}>
+              {editMode?"⟵ VIEW":"✏ EDIT"}
+            </button>
+          </div>
+        </div>
+
+        {/* KPI Strip */}
+        <div style={{display:"flex",gap:"0.6rem",marginTop:"1rem",flexWrap:"wrap"}}>
+          {[
+            {l:"Total Rev/Mo",     v:`₱${fmtN(totals.rev,0)}M`,   s:`₱${fmtN(totals.rev*12,0)}M ann.`},
+            {l:"Q1 Net Income",    v:`₱${fmtN(totals.niYtd,0)}M`, s:`₱${fmtN(totals.annNI,0)}M run rate`},
+            {l:"NIAT Baseline",    v:`₱${fmtN(totals.niat,0)}M`,  s:`+${fmtP((totals.annNI-totals.niat)/Math.abs(totals.niat))} growth`},
+            {l:"Q1 Group Margin",  v:fmtP(totals.niYtd/(totals.rev*3)), s:"net of ICU"},
+            {l:"H / W / ICU",      v:`${totals.healthy} / ${totals.watch} / ${totals.icu}`, s:`${Math.round(totals.icu/48*100)}% in ICU`},
+          ].map(k=>(
+            <div key={k.l} style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(201,168,76,0.2)",borderRadius:"8px",padding:"0.5rem 0.9rem",flex:"1",minWidth:"110px"}}>
+              <div style={{fontSize:"0.58rem",color:"#7a9bbf",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.15rem"}}>{k.l}</div>
+              <div style={{fontSize:"0.95rem",fontWeight:"bold",color:"#f5e6c8"}}>{k.v}</div>
+              <div style={{fontSize:"0.62rem",color:"#c9a84c",marginTop:"0.1rem"}}>{k.s}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabs */}
+        <div style={{display:"flex",gap:"0",marginTop:"1rem",borderBottom:"none"}}>
+          {TABS.map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)}
+              style={{background:tab===t.id?"rgba(255,255,255,0.08)":"transparent",
+                      color:tab===t.id?t.color:"#5a7a9a",
+                      border:"none",borderBottom:tab===t.id?`2px solid ${t.color}`:"2px solid transparent",
+                      padding:"0.45rem 1rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:tab===t.id?"bold":"normal",
+                      letterSpacing:"0.04em",transition:"all 0.15s"}}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Benchmark bar for ratio tabs */}
+      {tab!=="overview" && BM_INFO[tab] && (
+        <div style={{background:"#0f2038",borderBottom:"1px solid #1e3a5f",padding:"0.5rem 1.5rem",display:"flex",gap:"1.5rem",flexWrap:"wrap",alignItems:"center"}}>
+          <span style={{fontSize:"0.62rem",color:"#7a9bbf",textTransform:"uppercase",letterSpacing:"0.1em"}}>Benchmarks:</span>
+          {BM_INFO[tab].map(([label,range])=>(
+            <div key={label} style={{fontSize:"0.65rem",color:"#9db4cc"}}>
+              <span style={{color:curTab.color,fontWeight:"bold"}}>{label}:</span>{" "}
+              <span style={{color:"#86efac"}}>●</span>{" "}
+              <span style={{color:"#fde68a"}}>●</span>{" "}
+              <span style={{color:"#fca5a5"}}>●</span>{" "}
+              <span style={{color:"#7a9bbf",fontSize:"0.6rem"}}>{range}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Edit mode banner */}
+      {editMode && (
+        <div style={{background:"#1a3055",borderBottom:"1px solid #c9a84c",padding:"0.5rem 1.5rem",fontSize:"0.7rem",color:"#f5e6c8"}}>
+          <strong style={{color:"#c9a84c"}}>Edit Mode</strong>{" — "}
+          {tab==="overview"
+            ? "Fill in Industry, Year Incorporated, and Equity % below."
+            : `Fill in ${curTab.label} inputs below for each company. All values in PHP Millions.`}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{background:"#101e30",borderBottom:"1px solid #1a3050",padding:"0.5rem 1.5rem",display:"flex",gap:"0.6rem",alignItems:"center",flexWrap:"wrap"}}>
+        <span style={{fontSize:"0.62rem",color:"#7a9bbf",textTransform:"uppercase",letterSpacing:"0.1em"}}>Filter:</span>
+        {["All","Healthy","Watch","ICU"].map(f=>{
+          const cnt={All:48,Healthy:totals.healthy,Watch:totals.watch,ICU:totals.icu};
+          return (
+            <button key={f} onClick={()=>setFilter(f)}
+              style={{background:filter===f?(f==="Healthy"?"#064e3b":f==="ICU"?"#450a0a":f==="Watch"?"#451a03":"#1a3a6b"):"transparent",
+                      color:filter===f?"#fff":"#7a9bbf",border:`1px solid ${filter===f?"transparent":"#1e3a5f"}`,
+                      borderRadius:"5px",padding:"0.2rem 0.65rem",cursor:"pointer",fontSize:"0.7rem"}}>
+              {f} <span style={{opacity:0.65}}>({cnt[f]})</span>
+            </button>
+          );
+        })}
+        <div style={{marginLeft:"auto",display:"flex",gap:"0.4rem",alignItems:"center"}}>
+          <span style={{fontSize:"0.62rem",color:"#7a9bbf",textTransform:"uppercase",letterSpacing:"0.1em"}}>Sort:</span>
+          {[["rank","# Rank"],["rev","Revenue"],["niat","NIAT"],["margin","Margin"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setSortBy(k)}
+              style={{background:sortBy===k?"#1a3a6b":"transparent",color:sortBy===k?"#c9a84c":"#7a9bbf",
+                      border:`1px solid ${sortBy===k?"#c9a84c":"#1e3a5f"}`,borderRadius:"4px",
+                      padding:"0.18rem 0.55rem",cursor:"pointer",fontSize:"0.68rem"}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div style={{overflowX:"auto",padding:"0.75rem 1.5rem 2rem"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"0.72rem",whiteSpace:"nowrap"}}>
+          <thead>
+            <tr style={{background:"#101e30",borderBottom:`2px solid ${curTab.color}`}}>
+              <th style={{padding:"0.45rem 0.5rem",color:curTab.color,textAlign:"center",width:"3rem",fontSize:"0.62rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>#</th>
+              <th style={{padding:"0.45rem 0.5rem",color:curTab.color,textAlign:"center",width:"4.5rem",fontSize:"0.62rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Code</th>
+              <th style={{padding:"0.45rem 0.5rem",color:curTab.color,textAlign:"center",width:"6rem",fontSize:"0.62rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Status</th>
+              {tab==="overview" && <>
+                <th style={{padding:"0.45rem 0.5rem",color:curTab.color,textAlign:"left",width:"11rem",fontSize:"0.62rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Industry {editMode&&"✏"}</th>
+                <th style={{padding:"0.45rem 0.5rem",color:curTab.color,textAlign:"center",width:"7rem",fontSize:"0.62rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Yr Incorp {editMode&&"✏"}</th>
+                <th style={{padding:"0.45rem 0.5rem",color:curTab.color,textAlign:"center",width:"5rem",fontSize:"0.62rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Age</th>
+                <th style={{padding:"0.45rem 0.5rem",color:curTab.color,textAlign:"center",width:"6rem",fontSize:"0.62rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Jordan % {editMode&&"✏"}</th>
+                <th style={{padding:"0.45rem 0.5rem",color:curTab.color,textAlign:"center",width:"6rem",fontSize:"0.62rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>JV % {editMode&&"✏"}</th>
+              </>}
+              {tab!=="overview" && editMode && FIN_FIELDS[tab] && FIN_FIELDS[tab].map(f=>(
+                <th key={f.key} style={{padding:"0.45rem 0.5rem",color:"#c9a84c",textAlign:"center",fontSize:"0.62rem",textTransform:"uppercase",letterSpacing:"0.04em",background:"rgba(201,168,76,0.08)",borderBottom:`2px solid #c9a84c`}}>
+                  {f.label.split("(")[0].trim()} ✏
+                </th>
+              ))}
+              {cols.map(col=>(
+                <th key={col.key} style={{padding:"0.45rem 0.5rem",color:curTab.color,textAlign:"right",fontSize:"0.62rem",textTransform:"uppercase",letterSpacing:"0.04em"}}>{col.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((c,i)=>{
+              const hs=HEALTH_S[c.health];
+              const rowBg=i%2===0?"rgba(255,255,255,0.015)":"rgba(255,255,255,0.03)";
+              const icuTint=c.health==="ICU"?"rgba(153,27,27,0.06)":rowBg;
+              return (
+                <tr key={c.code} style={{background:icuTint,borderBottom:"1px solid rgba(255,255,255,0.03)"}}>
+                  <td style={{padding:"0.4rem 0.5rem",textAlign:"center",color:"#4a6a8a"}}>{c.num}</td>
+                  <td style={{padding:"0.4rem 0.5rem",textAlign:"center",fontWeight:"bold",color:"#f5e6c8",letterSpacing:"0.04em"}}>{c.code}</td>
+                  <td style={{padding:"0.3rem 0.4rem",textAlign:"center"}}>
+                    <span style={{background:hs.bg,color:hs.text,border:`1px solid ${hs.border}`,borderRadius:"4px",padding:"0.12rem 0.45rem",fontSize:"0.62rem",fontWeight:"bold"}}>
+                      {c.health}
+                    </span>
+                  </td>
+                  {tab==="overview" && <>
+                    <td style={{padding:"0.2rem 0.4rem",textAlign:"left"}}>
+                      {editMode
+                        ? <input value={c.industry} onChange={e=>setB(c.code,"industry",e.target.value)}
+                            placeholder="Enter industry…"
+                            style={{width:"100%",background:"rgba(201,168,76,0.1)",border:"1px solid #c9a84c",borderRadius:"3px",color:"#f5e6c8",padding:"0.12rem 0.35rem",fontSize:"0.7rem",outline:"none",fontFamily:"inherit"}}/>
+                        : <span style={{color:c.industry?"#e8dcc8":"#3d5a78"}}>{c.industry||"—"}</span>}
+                    </td>
+                    <td style={{padding:"0.2rem 0.4rem",textAlign:"center"}}>
+                      {editMode
+                        ? <input value={c.yearIncorp} onChange={e=>setB(c.code,"yearIncorp",e.target.value)}
+                            placeholder="e.g. 1998" type="number" min="1950" max="2025"
+                            style={{width:"100%",background:"rgba(201,168,76,0.1)",border:"1px solid #c9a84c",borderRadius:"3px",color:"#f5e6c8",padding:"0.12rem 0.35rem",fontSize:"0.7rem",outline:"none",fontFamily:"inherit",textAlign:"center"}}/>
+                        : <span style={{color:c.yearIncorp?"#e8dcc8":"#3d5a78"}}>{c.yearIncorp||"—"}</span>}
+                    </td>
+                    <td style={{padding:"0.4rem 0.5rem",textAlign:"center",color:c.yrsActive?"#9db4cc":"#3d5a78"}}>
+                      {c.yrsActive!==null?`${c.yrsActive}y`:"—"}
+                    </td>
+                    <td style={{padding:"0.2rem 0.4rem",textAlign:"center"}}>
+                      {editMode
+                        ? <input value={c.jordanPct} onChange={e=>setB(c.code,"jordanPct",e.target.value)}
+                            placeholder="e.g. 60" type="number" min="0" max="100"
+                            style={{width:"100%",background:"rgba(201,168,76,0.1)",border:"1px solid #c9a84c",borderRadius:"3px",color:"#f5e6c8",padding:"0.12rem 0.35rem",fontSize:"0.7rem",outline:"none",fontFamily:"inherit",textAlign:"center"}}/>
+                        : <span style={{color:c.jordanPct?"#c9a84c":"#3d5a78"}}>{c.jordanPct?`${c.jordanPct}%`:"—"}</span>}
+                    </td>
+                    <td style={{padding:"0.2rem 0.4rem",textAlign:"center"}}>
+                      {editMode
+                        ? <input value={c.jvPct} onChange={e=>setB(c.code,"jvPct",e.target.value)}
+                            placeholder="e.g. 100" type="number" min="0" max="100"
+                            style={{width:"100%",background:"rgba(201,168,76,0.1)",border:"1px solid #c9a84c",borderRadius:"3px",color:"#f5e6c8",padding:"0.12rem 0.35rem",fontSize:"0.7rem",outline:"none",fontFamily:"inherit",textAlign:"center"}}/>
+                        : <span style={{color:c.jvPct?"#9db4cc":"#3d5a78"}}>{c.jvPct?`${c.jvPct}%`:"—"}</span>}
+                    </td>
+                  </>}
+                  {tab!=="overview" && editMode && FIN_FIELDS[tab] && FIN_FIELDS[tab].map(f=>(
+                    <td key={f.key} style={{padding:"0.2rem 0.35rem",background:"rgba(201,168,76,0.04)"}}>
+                      <input value={fin[c.code][f.key]} onChange={e=>setF(c.code,f.key,e.target.value)}
+                        placeholder={f.ph} type="number"
+                        style={{width:"100%",background:"rgba(201,168,76,0.1)",border:"1px solid rgba(201,168,76,0.5)",borderRadius:"3px",color:"#f5e6c8",padding:"0.12rem 0.35rem",fontSize:"0.7rem",outline:"none",fontFamily:"inherit",textAlign:"right"}}/>
+                    </td>
+                  ))}
+                  {cols.map(col=>{
+                    const val = c[col.key];
+                    const colorStyle = col.ratioKey
+                      ? getRatioColor(col.ratioKey, val)
+                      : { bg:"transparent", text: typeof col.color==="function" ? col.color(val) : (col.color||"#e8dcc8") };
+                    return (
+                      <td key={col.key} style={{padding:"0.4rem 0.5rem",textAlign:"right",background:colorStyle.bg,color:colorStyle.text}}>
+                        {col.fmt(val)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr style={{background:"#0c1929",borderTop:`2px solid ${curTab.color}`}}>
+              <td colSpan={tab==="overview"?11:3} style={{padding:"0.45rem 0.5rem",color:curTab.color,fontWeight:"bold",fontSize:"0.65rem",letterSpacing:"0.05em",textTransform:"uppercase"}}>
+                Portfolio Totals ({filtered.length})
+              </td>
+              {tab==="overview" && cols.map(col=>{
+                const vals = filtered.map(c=>c[col.key]).filter(v=>v!==null&&!isNaN(v));
+                const sum = vals.reduce((s,v)=>s+v,0);
+                const disp = col.key==="pctPaced" ? "—" : col.key==="q1Margin" ? fmtP(filtered.reduce((s,c)=>s+c.niYtd,0)/(filtered.reduce((s,c)=>s+c.rev,0)*3)) : col.fmt(sum);
+                return <td key={col.key} style={{padding:"0.45rem 0.5rem",textAlign:"right",color:"#f5e6c8",fontWeight:"bold"}}>{disp}</td>;
+              })}
+              {tab!=="overview" && cols.map(col=>(
+                <td key={col.key} style={{padding:"0.45rem 0.5rem",textAlign:"right",color:"#5a7a9a"}}>—</td>
+              ))}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div style={{borderTop:"1px solid #1a3050",padding:"0.6rem 1.5rem",fontSize:"0.6rem",color:"#3d5a78",display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:"0.5rem"}}>
+        <span>Asialink Group · Jordan Family Holdings · March 2026</span>
+        <span>Healthy = NIAT ≥ ₱1M + Q1 margin ≥ 1.5% · Watch = below thresholds · ICU = Negative NIAT · Benchmarks are general guidelines; adjust for industry context</span>
+      </div>
+    </div>
+  );
+}
